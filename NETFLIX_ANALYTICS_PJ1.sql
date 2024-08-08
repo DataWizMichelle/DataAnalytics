@@ -1,3 +1,21 @@
+﻿/** NOTES
+
+Since all columns fit within a single entity, the data will not require any data modeling 
+		○ Primary Key (PK): show_id (Unique identifier for each show)
+		○ Other Attributes:
+			§ type: Type of show (e.g., movie, series)
+			§ title: Title of the show
+			§ director: Director of the show
+			§ cast: List of cast members
+			§ country: Country of origin
+			§ date_added: Date when the show was added to the database
+			§ release_year: Year the show was released
+			§ rating: Rating of the show
+			§ duration: Duration of the show (e.g., 120 minutes)
+			§ listed_in: Genre or category
+**/
+
+/*MAIN TABLE*/
 SELECT TOP (1000) [show_id]
       ,[type]
       ,[title]
@@ -11,14 +29,18 @@ SELECT TOP (1000) [show_id]
       ,[listed_in]
       ,[description]
   FROM [Project1].[dbo].[netflix_titles]
+ 
+ /*ADD PRIMARY KEY*/
+
+ Alter Table [Project1].[dbo].[netflix_titles] ADD PRIMARY KEY ([show_id]);
 
 /*Number of Records imported*/
   select count(*)  FROM [Project1].[dbo].[netflix_titles]  --8807
 
   --create back up table
   select * into [Project1].[dbo].[netflix_titles_RAW] FROM [Project1].[dbo].[netflix_titles];
-
-  /*CONTINUE TO USE FIRST TABLE AS MAIN TABLE FOR DATA CLEANING*/
+  
+/*CONTINUE TO USE FIRST TABLE AS MAIN TABLE FOR DATA CLEANING*/
 
 /*FIND DUPLICATES*/
 SELECT  [show_id]
@@ -65,7 +87,7 @@ EXEC [Project1].[dbo].FIND_NULLS '[Project1].[dbo].netflix_titles'
 ----date_added	98
 ----rating		4
 
-/*FIX NULLS AND DATA REMODELING*/
+/*ADJUST NULLS WHER DAT MAY HAVE SHIFTED*/
 select 'duration' AS NAME, COUNT(*) as NULLS from [Project1].[dbo].netflix_titles where [duration] IS NULL GROUP BY [duration] 
 
 SELECT * from [Project1].[dbo].netflix_titles where [duration] IS NULL-- DATA SHIFTED, 3 RECORDS
@@ -81,75 +103,7 @@ UPDATE [Project1].[dbo].netflix_titles SET RATING = NULL WHERE RATING LIKE '%MIN
 
 SELECT * From [Project1].[dbo].netflix_titles WHERE RATING IS NULL -- 7 RECORDS
 
-
-	 SELECT CONCAT('R',ROW_NUMBER() OVER (ORDER BY RATING)) RATE_ID, (RATING) AS RATING
-	 INTO [Project1].[dbo].RATING
-	 From [Project1].[dbo].netflix_titles WHERE RATING IS NOT NULL
-	 GROUP BY RATING 
-
-SELECT * FROM [Project1].[dbo].RATING
-
-/*COUNTRY*/
-
-SELECT DISTINCT COUNTRY FROM [Project1].[dbo].netflix_titles ORDER BY 1
-
-SELECT COUNTRY,value
-FROM [Project1].[dbo].netflix_titles  
-CROSS APPLY STRING_SPLIT(Country, ',')
-
-SELECT CONCAT('C',ROW_NUMBER() OVER (ORDER BY Country)) Country_ID, Country
-INTO [Project1].[dbo].Countries
-FROM (
-SELECT distinct trim(value) as Country
-FROM [Project1].[dbo].netflix_titles  
-CROSS APPLY STRING_SPLIT(Country, ',')
-where len(value) >1) AS A
-order by Country
-
-
-select * from [Project1].[dbo].Countries
-
-/*Director*/
-SELECT DISTINCT Director FROM [Project1].[dbo].netflix_titles WHERE Director IS NOT NULL ORDER BY 1
-
-select ROW_NUMBER() OVER (ORDER BY Director) Director_ID, director
-INTO [Project1].[dbo].Director
-	from (
-	SELECT  DISTINCT trim(value) as Director
-FROM [Project1].[dbo].netflix_titles  
-CROSS APPLY STRING_SPLIT(Director, ',')) as a
-
-select * FROM [Project1].[dbo].[Director]
-
-
-/*[listed_in]*/
-
-SELECT DISTINCT [listed_in] FROM [Project1].[dbo].netflix_titles WHERE [listed_in] IS NOT NULL ORDER BY 1
-
-select ROW_NUMBER() OVER (ORDER BY [listed_in]) [listed_ID], [listed_in]
-INTO [Project1].[dbo].Listed
-	from (
-	SELECT  DISTINCT trim(value) as [listed_in]
-FROM [Project1].[dbo].netflix_titles  
-CROSS APPLY STRING_SPLIT([listed_in], ',')) as a
-
-select * from [Project1].[dbo].Listed
-
-/*[CAST]*/
-
-SELECT DISTINCT [CAST] FROM [Project1].[dbo].netflix_titles WHERE [CAST] IS NOT NULL ORDER BY 1
-
-select ROW_NUMBER() OVER (ORDER BY [CAST]) [Actor_ID], [CAST] as Actor_Name
-INTO [Project1].[dbo].Actors
-	from (
-	SELECT  DISTINCT trim(value) as [CAST]
-FROM [Project1].[dbo].netflix_titles  
-CROSS APPLY STRING_SPLIT([CAST], ',')) as a
-
-select * from [Project1].[dbo].Actors
-
-
-/*ANALYTICS*/
+/*****ANALYTICS*****/
 
 /*movies vs tv show*/
 
@@ -167,7 +121,7 @@ GROUP BY TYPE
 
 SELECT RELEASE_YEAR, TYPE, COUNT([show_id]) AS FLIX From [Project1].[dbo].netflix_titles GROUP BY RELEASE_YEAR, TYPE ORDER BY 1
 
- SELECT RELEASE_YEAR,[TV Show], [Movie]
+ SELECT RELEASE_YEAR,ISNULL([TV Show], 0) [TV Show], ISNULL([Movie], 0) [Movie]
 From (SELECT RELEASE_YEAR, TYPE, COUNT([show_id]) AS FLIX From [Project1].[dbo].netflix_titles GROUP BY RELEASE_YEAR, TYPE 
 ) AS A
 PIVOT
@@ -247,3 +201,4 @@ PIVOT
    FOR [YEAR] IN ([2010],[2021],[2013],[2008],[2016],[2019],[2020],[2014],[2011],[2017],[2012],[2018],[2009],[2015])
  ) AS PivotTable 
  ORDER BY 1 DESC
+
